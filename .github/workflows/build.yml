@@ -4,11 +4,25 @@ on:
   push:
     tags: ["v*"]
 
+# Needed so the tag build can create/update a GitHub Release.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            asset: HomeProxyPanel-windows.exe
+            bin: dist/HomeProxyPanel.exe
+          - os: macos-latest
+            asset: HomeProxyPanel-macos
+            bin: dist/HomeProxyPanel
+          - os: ubuntu-latest
+            asset: HomeProxyPanel-linux
+            bin: dist/HomeProxyPanel
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +31,19 @@ jobs:
           python-version: "3.12"
       - run: pip install pyinstaller -r requirements.txt
       - run: pyinstaller home_proxy_panel.spec
+      - name: Name the binary per-OS
+        shell: bash
+        run: cp "${{ matrix.bin }}" "${{ matrix.asset }}"
+      # Always keep the build as a workflow artifact (downloadable while logged in).
       - uses: actions/upload-artifact@v4
         with:
-          name: HomeProxyPanel-${{ matrix.os }}
-          path: dist/*
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+      # On a v* tag, attach the binary to a public Release (anonymous download).
+      - name: Publish to Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
