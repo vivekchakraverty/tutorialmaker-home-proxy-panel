@@ -1,0 +1,23 @@
+name: build
+on:
+  workflow_dispatch: {}
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyinstaller -r requirements.txt
+      - run: pyinstaller home_proxy_panel.spec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HomeProxyPanel-${{ matrix.os }}
+          path: dist/*
